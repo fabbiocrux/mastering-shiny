@@ -115,6 +115,11 @@ The inputs have:
 3. `value`: the value of that input. 
 
 ```{r}
+
+# Limited choices
+  animals <- c("dog", "cat", "mouse", "otro")
+
+
 ui <- fluidPage(
   selectInput("dataset", label="Dataset", choices = ls("package:datasets")),
   verbatimTextOutput("summary"),
@@ -133,10 +138,46 @@ ui <- fluidPage(
   # Numeric Inputs
   numericInput("num", "Number one", value=0, min=0, max=100),
   sliderInput("num2", "Number two", value=0, min=0, max=100),
-  sliderInput("rang", "Range of values", value = c(10,20), min = 0, max = 100)
+  sliderInput("rang", "Range of values", value = c(10,20), min = 0, max = 100),
   
+  # Dates
+  dateInput("Date", "when you born?"),
+  dateRangeInput("Holiday", "When do you want go to vacation?"),
+  
+  
+  # Limited choices
+  selectInput("statew", "What is you favorite state", choices=state.name),
+  radioButtons("animal", "What's your favorite animal?", choices = animals),
+  radioButtons("faces", "Choose one face?",
+               choiceNames = list(
+                 fontawesome::fa(name = "r-project", fill = "steelblue"),
+                  icon("sad-tear")
+               ),
+               choiceValues = list(
+                 "Fontawsome", "icon"
+               )),
+  
+  # Dropdowns
+  selectInput("dropdown","what is your favorite state", choices = state.name, multiple = TRUE),
+ 
+  # Checkbox
+  checkboxGroupInput("animals_check", "What animals do you like?", choices=animals),
+  
+  checkboxInput("clean", "Limpiamos?", value = TRUE),
+  checkboxInput("shutdown", "No shutdown"),
+  
+  # File Uploads
+  fileInput("upload_data", NULL),
+  
+  # Actions buttos
+  actionButton("click", "Clilck me!!", class = "btn-danger"),
+  actionButton("Click2", "Drink me", 
+               icon =  icon("cocktail"))
 )
-server <- function(input, output, session) {
+
+  
+
+  server <- function(input, output, session) {
   
   # Reactive expression for the input
   
@@ -158,8 +199,84 @@ shinyApp(ui, server)
 ```
 
 
+### Outputs
+
+Each `output` function on the front is coupled with a `render`
+
+There are three main outputs:
+1. `Text`: 
+2. `Table`: 
+3. `Plots`: 
+
+```{r}
+
+# Limited choices
+  animals <- c("dog", "cat", "mouse", "otro")
+
+
+ui <- fluidPage(
+  # Outputs
+  ## Text
+  textOutput("Text"),
+  verbatimTextOutput("code"),
+  
+  
+  ## Tables
+  tableOutput("static"),
+  dataTableOutput("dynamic"),
+  
+  #Plots
+  plotOutput("plot", width = "400px")
+  
+  # Download
+  downloadButton()
+)
+
+  
+
+  server <- function(input, output, session) {
+  
+  # Reactive expression for the input
+  
+  dataset <- reactive({
+    get(input$dataset, "package:datasets")
+  })
+  
+  # Output para la el 'verbatim' summary
+  output$Text <- renderText({
+    "Hello, I am testing renderText"
+  })
+  
+  # Output para la table
+  output$code <- renderPrint({
+    summary(1:10)
+  })
+  
+  
+  ## Testing thee difference
+  output$Text <- renderText("Hello friend!")
+  output$code <- renderPrint(summary(1:10))
+  
+  
+  # Tables
+  ## Static
+  output$static <- renderTable(head(mtcars))
+  ## Dynamic
+  output$dynamic <- renderDataTable(mtcars, options = list(pageLength=5))
+  
+  
+  # Plots
+  output$plot <- renderPlot(plot(1:5), res=100)
+  
+  # Download
+}
+shinyApp(ui, server)
 
 ```
+
+
+
+
 
 
 
