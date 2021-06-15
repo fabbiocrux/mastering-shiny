@@ -1,0 +1,105 @@
+---
+title: "Mastering shiny"
+output: learnr::tutorial
+runtime: shiny_prerendered
+---
+
+```{r setup, include=FALSE}
+library(learnr)
+knitr::opts_chunk$set(echo = FALSE)
+library(shiny)
+```
+
+
+## My first Shiny app
+
+### Exercise 1
+
+This is the most basic Shiny App. It contains `UI` and a `Server` elements. 
+
+```{r}
+ui <- fluidPage(
+  "Hello, world!"
+)
+server <- function(input, output, session) {
+}
+shinyApp(ui, server)
+```
+
+
+
+### Exercise 2
+
+For th `UI`, we add some elements in the panel
+
+```{r}
+ui <- fluidPage(
+  selectInput("dataset", label="Dataset", choices = ls("package:datasets")),
+  verbatimTextOutput("summary"),
+  tableOutput("table")
+)
+server <- function(input, output, session) {
+}
+shinyApp(ui, server)
+```
+
+## Exercise 3
+
+Adding functions to thee `server` to plot the 
+
+```{r}
+ui <- fluidPage(
+  selectInput("dataset", label="Dataset", choices = ls("package:datasets")),
+  verbatimTextOutput("summary"),
+  tableOutput("table")
+)
+server <- function(input, output, session) {
+  
+  # Output para la el 'verbatim' summary
+  output$summary <- renderPrint({
+    dataset <- get(input$dataset, "package:datasets")
+    summary(dataset)
+  })
+  
+  # Output para la table
+  output$table <- renderTable({
+    dataset <- get(input$dataset, "package:datasets")
+    dataset
+  })
+}
+shinyApp(ui, server)
+```
+
+
+### Exercise 4: Optimizing with `Reactive` expresions
+
+Giving the fact that we duplicate the `get(input$dataset, "package:datasets")` expression, we can use a variable to do this beforehand.
+
+
+```{r}
+ui <- fluidPage(
+  selectInput("dataset", label="Dataset", choices = ls("package:datasets")),
+  verbatimTextOutput("summary"),
+  tableOutput("table")
+)
+server <- function(input, output, session) {
+  
+  # Reactive expression for the input
+  
+  dataset <- reactive({
+    get(input$dataset, "package:datasets")
+  })
+  
+  # Output para la el 'verbatim' summary
+  output$summary <- renderPrint({
+    summary(dataset())
+  })
+  
+  # Output para la table
+  output$table <- renderTable({
+    dataset()
+  })
+}
+shinyApp(ui, server)
+```
+
