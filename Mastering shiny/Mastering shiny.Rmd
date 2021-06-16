@@ -226,7 +226,7 @@ ui <- fluidPage(
   dataTableOutput("dynamic"),
   
   #Plots
-  plotOutput("plot", width = "400px")
+  plotOutput("plot", width = "400px"),
   
   # Download
   downloadButton()
@@ -277,39 +277,273 @@ shinyApp(ui, server)
 
 
 
+## Ch2: Basic Reactivity
+
+
+### Input
+
+```{r}
+
+ui <- fluidPage(
+  # front end interface
+  numericInput("count", label="Number of values", value = 100)
+)
+
+server <- function(input, output, session) {
+  # back end logic
+   message("The value of input$count is ", input$count)
+}
+
+shinyApp(ui, server)
+```
+
+### Output
+
+```{r}
+ui <- fluidPage(
+  textOutput("greeting")
+)
+
+server <- function(input, output, session) {
+  output$greeting <- renderText("Hello human!")
+  
+  output$greeting <- "Hello human"  # Error: You forget the render function.
+  message("The greeting is ", output$greeting) #You attempt to read from an output.
+
+}
+
+shinyApp(ui, server)
+```
+
+
+
+### Reacctive Programming
+
+```{r}
+ui <- fluidPage(
+  textInput("name", "What's your name?"),
+  textOutput("greeting")
+)
+
+server <- function(input, output, session) {
+  output$greeting <- renderText({
+    paste0("Hello ", input$name, "!")
+  })
+}
+shinyApp(ui, server)
+```
+
+### Imperative Vs. Declarative Programming
+
+**Imperative:** You issues a specific command ans iti's carried out immediately. (Like R script for data analysis)
+
+**Declarative**: You express higher-level goals or describe important constraints, and rely on someone else to decide how and/or when to translate that into action.
+
+
+
+### Laziness
+
+
+```{r}
+server <- function(input, output, session) {
+  output$greting <- renderText({
+    paste0("Hello ", input$name, "!")
+  })
+}
+```
+
+If you’re working on a Shiny app and you just can’t figure out why your code never gets run, double check that your UI and server functions are using the same identifiers.
+
+### The reactive Graph
+
+The reactive graph is a powerful tool for understanding how your app works. As your app gets more complicated, it’s often useful to make a quick high-level sketch of the reactive graph to remind you how all the pieces fit together. Throughout this book we’ll show you the reactive graph to help understand how the examples work, and later on, in Chapter 14, you’ll learn how to use reactlog which will draw the graph for you.
+
+### Reactive expressions
+
+Reactive expressions take inputs and produce outputs so they have a shape that combines features of both inputs and outputs. Hopefully, the shapes will help you remember how the components fit together.
+
+
+
+```{r}
+
+ui <- fluidPage(
+  textInput("name", "What's your name?"),
+  textOutput("greeting")
+)
+server <- function(input, output, session) {
+  string <- reactive(paste0("Hello ", input$name, "!"))
+  output$greeting <- renderText(string())
+}
+shinyApp(ui, server)
+```
+
+
+### Execution order
+
+This concept is very important and different to most other R code, so I’ll say it again: the order in which reactive code is run is determined only by the reactive graph, not by its layout in the server function.
+
+### Exercises
+
+```{r}
+ui <- fluidPage(
+  textInput("name", "What's your name?"),
+  textOutput("greeting")
+)
+server <- function(input, output, session) {
+    greeting <- reactive(paste0("Hello ", input$name))
+  output$greeting <- renderText(greeting())
+}
+shinyApp(ui, server)
+
+```
 
 
 
 
+## Reactive Expressions
+
+This duality means we need some new vocab: We’ll use **producers** to refer to reactive inputs and expressions, and **consumers** to refer to reactive expressions and outputs. Figure 3.5 shows this relationship with a Venn diagram.
+
+
+```{r}
+library(ggplot2)
+
+freqpoly <- function(x1, x2, binwidth = 0.1, xlim = c(-3, 3)) {
+  df <- data.frame(
+    x = c(x1, x2),
+    g = c(rep("x1", length(x1)), rep("x2", length(x2)))
+  )
+
+  ggplot(df, aes(x, colour = g)) +
+    geom_freqpoly(binwidth = binwidth, size = 1) +
+    coord_cartesian(xlim = xlim)
+}
+
+t_test <- function(x1, x2) {
+  test <- t.test(x1, x2)
+  
+  # use sprintf() to format t.test() results compactly
+  sprintf(
+    "p value: %0.3f\n[%0.2f, %0.2f]",
+    test$p.value, test$conf.int[1], test$conf.int[2]
+  )
+}
+
+# Simulated data
+x1 <- rnorm(100, mean = 0, sd = 0.5)
+x2 <- rnorm(200, mean = 0.15, sd = 0.9)
+
+freqpoly(x1, x2)
+cat(t_test(x1, x2))
+#> p value: 0.009
+#> [-0.42, -0.06]
+```
+
+
+The app (Inneficient version)
+
+```{r}
+ui <- fluidPage(
+  fluidRow(
+    column(4, 
+      "Distribution 1",
+      numericInput("n1", label = "n", value = 1000, min = 1),
+      numericInput("mean1", label = "µ", value = 0, step = 0.1),
+      numericInput("sd1", label = "σ", value = 0.5, min = 0.1, step = 0.1)
+    ),
+    column(4, 
+      "Distribution 2",
+      numericInput("n2", label = "n", value = 1000, min = 1),
+      numericInput("mean2", label = "µ", value = 0, step = 0.1),
+      numericInput("sd2", label = "σ", value = 0.5, min = 0.1, step = 0.1)
+    ),
+    column(4,
+      "Frequency polygon",
+      numericInput("binwidth", label = "Bin width", value = 0.1, step = 0.1),
+      sliderInput("range", label = "range", value = c(-3, 3), min = -5, max = 5)
+    )
+  ),
+  fluidRow(
+    column(9, plotOutput("hist")),
+    column(3, verbatimTextOutput("ttest"))
+  )
+)
+
+server <- function(input, output, session) {
+  output$hist <- renderPlot({
+    x1 <- rnorm(input$n1, input$mean1, input$sd1)
+    x2 <- rnorm(input$n2, input$mean2, input$sd2)
+    
+    freqpoly(x1, x2, binwidth = input$binwidth, xlim = input$range)
+  }, res = 96)
+
+  output$ttest <- renderText({
+    x1 <- rnorm(input$n1, input$mean1, input$sd1)
+    x2 <- rnorm(input$n2, input$mean2, input$sd2)
+    
+    t_test(x1, x2)
+  })
+}
+
+shinyApp(ui, server)
+```
 
 
 
+The app (more efficient version)
+
+
+```{r}
+ui <- fluidPage(
+  fluidRow(
+    column(4, 
+      "Distribution 1",
+      numericInput("n1", label = "n", value = 1000, min = 1),
+      numericInput("mean1", label = "µ", value = 0, step = 0.1),
+      numericInput("sd1", label = "σ", value = 0.5, min = 0.1, step = 0.1)
+    ),
+    column(4, 
+      "Distribution 2",
+      numericInput("n2", label = "n", value = 1000, min = 1),
+      numericInput("mean2", label = "µ", value = 0, step = 0.1),
+      numericInput("sd2", label = "σ", value = 0.5, min = 0.1, step = 0.1)
+    ),
+    column(4,
+      "Frequency polygon",
+      numericInput("binwidth", label = "Bin width", value = 0.1, step = 0.1),
+      sliderInput("range", label = "range", value = c(-3, 3), min = -5, max = 5)
+    )
+  ),
+  fluidRow(
+    column(9, plotOutput("hist")),
+    column(3, verbatimTextOutput("ttest"))
+  )
+)
+
+
+server <- function(input, output, session) {
+  
+  x1 <- reactive(rnorm(input$n1, input$mean1, input$sd1))
+  x2 <- reactive(rnorm(input$n2, input$mean2, input$sd2))
+
+  
+  output$hist <- renderPlot({
+    freqpoly(x1(), x2(), binwidth = input$binwidth, xlim = input$range)
+  }, res = 96)
+
+  output$ttest <- renderText({
+    t_test(x1(), x2())
+  })
+}
+
+shinyApp(ui, server)
+```
 
 
 
+You might be familiar with the “rule of three” of programming: whenever you copy and paste something three times, you should figure out how to reduce the duplication (typically by writing a function). This is important because it reduces the amount of duplication in your code, which makes it easier to understand, and easier to update as your requirements change.
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+In Shiny, however, I think you should consider the rule of one: whenever you copy and paste something once, you should consider extracting the repeated code out into a reactive expression. The rule is stricter for Shiny because reactive expressions don’t just make it easier for humans to understand the code, they also improve Shiny’s ability to efficiently rerun code.
 
 
 
